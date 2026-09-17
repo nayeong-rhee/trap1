@@ -1,0 +1,96 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  user-select: none;
+}
+
+body {
+  background-color: #0b110e;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", sans-serif;
+  color: #f2f5f3;
+  cursor: none; /* 브라우저 기본 화살표 숨김 */
+}
+
+#ui-container {
+  position: absolute;
+  top: 32px;
+  left: 32px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.label {
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  color: #4e7359;
+  font-weight: 600;
+}
+
+#timer {
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #8af0a1;
+  font-variant-numeric: tabular-nums;
+  margin-top: -4px;
+}
+
+#instruction {
+  font-size: 0.95rem;
+  color: #8c9e93;
+  margin-top: 8px;
+  letter-spacing: -0.01em;
+}
+
+/* 게임 오버 및 성공 모달 */
+#game-over-modal {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(15, 23, 19, 0.92);
+  border: 1px solid rgba(138, 240, 161, 0.25);
+  padding: 40px 48px;
+  border-radius: 16px;
+  text-align: center;
+  backdrop-filter: blur(12px);
+  z-index: 20;
+  transition: opacity 0.3s ease;
+}
+
+#game-over-modal.hidden {
+  display: none;
+}
+
+#modal-title {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+
+#modal-desc {
+  font-size: 1rem;
+  color: #b0c4b8;
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+#retry-btn {
+  background-color: #8af0a1;
+  color: #0b110e;
+  border: none;
+  padding: 12px 28px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: transform 0.2s, background-color 0.2s;
+}
+
+#retry-btn:hover {
+  background-color: #a8f5ba;
+  transform: scale(1.05);
+}

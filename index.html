@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>파리지옥 - 모티브 워크숍</title>
+  
+  <!-- p5.js 라이브러리 불러오기 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    body {
+      background-color: #0b110e;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", sans-serif;
+      color: #f2f5f3;
+      cursor: none; /* 브라우저 기본 화살표 숨김 */
+    }
+
+    #ui-container {
+      position: absolute;
+      top: 32px;
+      left: 32px;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .label {
+      font-size: 0.75rem;
+      letter-spacing: 0.15em;
+      color: #4e7359;
+      font-weight: 600;
+    }
+
+    #timer {
+      font-size: 3rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #8af0a1;
+      font-variant-numeric: tabular-nums;
+      margin-top: -4px;
+    }
+
+    #instruction {
+      font-size: 0.95rem;
+      color: #8c9e93;
+      margin-top: 8px;
+      letter-spacing: -0.01em;
+    }
+
+    /* 게임 오버 및 성공 모달 */
+    #game-over-modal {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(15, 23, 19, 0.92);
+      border: 1px solid rgba(138, 240, 161, 0.25);
+      padding: 40px 48px;
+      border-radius: 16px;
+      text-align: center;
+      backdrop-filter: blur(12px);
+      z-index: 20;
+      transition: opacity 0.3s ease;
+    }
+
+    #game-over-modal.hidden {
+      display: none;
+    }
+
+    #modal-title {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+
+    #modal-desc {
+      font-size: 1rem;
+      color: #b0c4b8;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    #retry-btn {
+      background-color: #8af0a1;
+      color: #0b110e;
+      border: none;
+      padding: 12px 28px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: transform 0.2s, background-color 0.2s;
+    }
+
+    #retry-btn:hover {
+      background-color: #a8f5ba;
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- UI 레이어 -->
+  <div id="ui-container">
+    <div class="label">TIME REMAINING</div>
+    <div id="timer">30.00</div>
+    <div id="instruction">발버둥 칠수록 입자가 끌려옵니다. 천천히 틈을 빗겨나가세요.</div>
+  </div>
+
+  <!-- 결과 알림 모달 창 -->
+  <div id="game-over-modal" class="hidden">
+    <h1 id="modal-title">CAPTURED</h1>
+    <p id="modal-desc">발버둥 치는 바람에 유혹의 입자가 엉겨 붙었습니다.</p>
+    <button id="retry-btn" onclick="resetGame()">다시 시도</button>
+  </div>
+
+  <!-- 게임 로직 (p5.js) -->
+  <script>
+    let particles = [];
+    let fly = { x: 0, y: 0, speed: 0, size: 22 };
+    let timeLeft = 30.0;
+    let gameState = 'PLAYING'; // 'PLAYING', 'GAMEOVER', 'CLEAR'
+    let struggleIntensity = 0;
+
+    function setup() {
+      createCanvas(windowWidth, windowHeight);
+      fly.x = width / 2;
+      fly.y = height / 2;
+
+      // 꿀 냄새 입자 45개 생성
+      for (let i = 0; i < 45; i++) {
+        particles.push(new ScentParticle());
+      }
+    }
+
+    function draw() {
+      background(11, 17, 14, 55); // 잔상 효과
+
+      // 1. 마우스 속도(발버둥) 계산
+      let currentSpeed = dist(mouseX, mouseY, pmouseX, pmouseY);
+      fly.speed = lerp(fly.speed, currentSpeed, 0.3);
+      fly.x = mouseX;
+      fly.y = mouseY;
+
+      // 2. 발버둥 수치 제어
+      if (fly.speed > 16) {
+        struggleIntensity = min(struggleIntensity + 0.05, 1.0);
+      } else {
+        struggleIntensity = max(struggleIntensity - 0.02, 0.0);
+      }
+
+      // 화면 붉은 펄스 (위험 경고)
+      if (struggleIntensity > 0 && gameState === 'PLAYING') {
+        fill(235, 60, 60, struggleIntensity * 40);
+        noStroke();
+        rect(0, 0, width, height);
+      }
+
+      // 3. 파리지옥 잎 내부 경계선 가이드
+      drawTrapBoundary();
+
+      // 4. 입자 업데이트 및 렌더링
+      for (let p of particles) {
+        if (gameState === 'PLAYING') {
+          p.update(fly);
+        }
+        p.display();
+
+        // 충돌 체크
+        if (gameState === 'PLAYING') {
+          let d = dist(fly.x, fly.y, p.x, p.y);
+          if (d < p.radius + fly.size * 0.3) {
+            handleGameOver();
+          }
+        }
+      }
+
+      // 5. 파리(플레이어 커서) 렌더링
+      drawFly(fly.x, fly.y, fly.speed);
+
+      // 6. 타이머 루프
+      if (gameState === 'PLAYING') {
+        updateTimer();
+      }
+    }
+
+    // 냄새 입자 객체
+    class ScentParticle {
+      constructor() {
+        this.init();
+      }
+
+      init() {
+        this.x = random(width);
+        this.y = random(height);
+        this.vx = random(-0.8, 0.8);
+        this.vy = random(-0.8, 0.8);
+        this.radius = random(10, 22);
+      }
+
+      update(targetFly) {
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // 화면 밖 순환
+        if (this.x < -30) this.x = width + 30;
+        if (this.x > width + 30) this.x = -30;
+        if (this.y < -30) this.y = height + 30;
+        if (this.y > height + 30) this.y = -30;
+
+        // 발버둥 칠수록 입자가 파리 쪽으로 수축
+        let d = dist(this.x, this.y, targetFly.x, targetFly.y);
+        let attractionRadius = 380;
+
+        if (targetFly.speed > 16 && d < attractionRadius) {
+          let force = map(targetFly.speed, 16, 60, 0.015, 0.075, true);
+          this.x = lerp(this.x, targetFly.x, force);
+          this.y = lerp(this.y, targetFly.y, force);
+        }
+      }
+
+      display() {
+        noStroke();
+        // 꿀빛 글로우
+        fill(230, 200, 90, 30);
+        ellipse(this.x, this.y, this.radius * 2.8);
+        fill(245, 215, 110, 180);
+        ellipse(this.x, this.y, this.radius * 1.4);
+      }
+    }
+
+    // 파리 커서 그리기
+    function drawFly(x, y, speed) {
+      push();
+      translate(x, y);
+
+      let bodyColor = lerpColor(color(140, 240, 165), color(255, 75, 75), map(speed, 10, 45, 0, 1, true));
+
+      noStroke();
+      fill(bodyColor);
+      ellipse(0, 0, fly.size, fly.size * 0.75);
+
+      let wingOffset = sin(frameCount * 0.8) * 4;
+      fill(255, 255, 255, 130);
+      ellipse(-6, -8 + wingOffset, 14, 7);
+      ellipse(6, -8 + wingOffset, 14, 7);
+
+      pop();
+    }
+
+    function drawTrapBoundary() {
+      noFill();
+      stroke(30, 48, 38, 120);
+      strokeWeight(2);
+      rect(16, 16, width - 32, height - 32, 24);
+    }
+
+    function updateTimer() {
+      if (timeLeft > 0) {
+        timeLeft -= deltaTime / 1000;
+        document.getElementById('timer').innerText = max(0, timeLeft).toFixed(2);
+      } else {
+        handleClear();
+      }
+    }
+
+    function handleGameOver() {
+      gameState = 'GAMEOVER';
+      document.body.style.cursor = 'default';
+
+      let modal = document.getElementById('game-over-modal');
+      document.getElementById('modal-title').innerText = 'CAPTURED';
+      document.getElementById('modal-title').style.color = '#ff6b6b';
+      document.getElementById('modal-desc').innerText = '발버둥 치는 바람에 유혹의 입자가 엉겨 붙었습니다.';
+      modal.classList.remove('hidden');
+    }
+
+    function handleClear() {
+      gameState = 'CLEAR';
+      document.body.style.cursor = 'default';
+
+      let modal = document.getElementById('game-over-modal');
+      document.getElementById('modal-title').innerText = 'FREEDOM';
+      document.getElementById('modal-title').style.color = '#8af0a1';
+      document.getElementById('modal-desc').innerText = '침묵과 정적으로 유혹을 흘려보내고 탈출했습니다.';
+      modal.classList.remove('hidden');
+    }
+
+    function resetGame() {
+      timeLeft = 30.0;
+      gameState = 'PLAYING';
+      struggleIntensity = 0;
+      document.body.style.cursor = 'none';
+      document.getElementById('game-over-modal').classList.add('hidden');
+
+      for (let p of particles) {
+        p.init();
+      }
+    }
+
+    function windowResized() {
+      resizeCanvas(windowWidth, windowHeight);
+    }
+  </script>
+</body>
+</html>
